@@ -111,6 +111,7 @@ namespace MyUnsafeUtil
     }
     public class MyNativeArray<T> : IDisposable, IEnumerable<T>, IEnumerable where T : unmanaged
     {
+        private readonly bool owner = false;
         private bool disposedValue = false;
         private NativeArray<T> nativeArray = default;
         private unsafe T* ptr = null;
@@ -182,6 +183,7 @@ namespace MyUnsafeUtil
                 stackTrace = new System.Diagnostics.StackTrace(true);
             }
 #endif
+            owner = true;
             nativeArray = new NativeArray<T>(length, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             unsafe
             {
@@ -194,6 +196,7 @@ namespace MyUnsafeUtil
             //stackTrace = new System.Diagnostics.StackTrace();
             stackTrace = new System.Diagnostics.StackTrace(true);
 #endif
+            owner = true;
             nativeArray = new NativeArray<T>(length, allocator, options);
             unsafe
             {
@@ -204,6 +207,7 @@ namespace MyUnsafeUtil
         {
             gcHandle = GCHandle.Alloc(managedArray, GCHandleType.Pinned);
             var intPtr = gcHandle.AddrOfPinnedObject();
+            owner = true;
             unsafe
             {
                 ptr = (T*)intPtr;
@@ -216,6 +220,7 @@ namespace MyUnsafeUtil
         }
         public MyNativeArray(IntPtr intPtr, int length)
         {
+            owner = true;
             unsafe
             {
                 ptr = (T*)intPtr;
@@ -225,6 +230,15 @@ namespace MyUnsafeUtil
             atomicSafetyHandle = AtomicSafetyHandle.Create();
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref nativeArray, atomicSafetyHandle);
 #endif
+        }
+        public MyNativeArray(NativeArray<T> nativeArray)
+        {
+            owner = false;
+            this.nativeArray = nativeArray;
+            unsafe
+            {
+                ptr = (T*)NativeArrayUnsafeUtility.GetUnsafePtr(nativeArray);
+            }
         }
         protected virtual void Dispose(bool disposing)
         {
@@ -242,6 +256,7 @@ namespace MyUnsafeUtil
                     UnityEngine.Debug.Log(stackTrace);
                 }
 #endif
+                if (owner)
                 {
                     if (gcHandle.IsAllocated)
                     {
